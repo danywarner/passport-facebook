@@ -3,10 +3,14 @@ var express = require('express')
   , util = require('util')
   , FacebookStrategy = require('passport-facebook').Strategy
   , cookieParser = require("cookie-parser")
-  , methodOverride = require('method-override');
+  , methodOverride = require('method-override')
+  , Config = require('./config');
+;
 
-var FACEBOOK_APP_ID = '754657637972313';
-var FACEBOOK_APP_SECRET = 'e4a2dc4d8b2af80389ec981c4f90945b';
+conf = new Config();
+
+var FACEBOOK_APP_ID = conf.facebook.FACEBOOK_APP_ID;
+var FACEBOOK_APP_SECRET = conf.facebook.FACEBOOK_APP_SECRET;
 
 
 // Passport session setup.
@@ -30,8 +34,8 @@ passport.deserializeUser(function(obj, done) {
 //   credentials (in this case, an accessToken, refreshToken, and Facebook
 //   profile), and invoke a callback with a user object.
 passport.use(new FacebookStrategy({
-    clientID: '754657637972313',
-    clientSecret: 'e4a2dc4d8b2af80389ec981c4f90945b',
+    clientID: FACEBOOK_APP_ID,
+    clientSecret: FACEBOOK_APP_SECRET,
     callbackURL: "http://localhost:3000/auth/facebook/callback"
   },
   function(req, accessToken, refreshToken, profile, done) {
