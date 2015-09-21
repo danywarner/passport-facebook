@@ -4,7 +4,7 @@ var express = require('express')
   , FacebookStrategy = require('passport-facebook').Strategy
   , cookieParser = require("cookie-parser")
   , methodOverride = require('method-override')
-  , Config = require('./config');
+  , Config = require('./config/config');
 ;
 
 conf = new Config();
