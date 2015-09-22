@@ -4,7 +4,11 @@ var express = require('express')
   , FacebookStrategy = require('passport-facebook').Strategy
   , cookieParser = require("cookie-parser")
   , methodOverride = require('method-override')
-  , Config = require('./config/config');
+  , Config = require('./config/config')
+  , User = require('./user')
+  , secrets = require('./secrets')
+  , mongoose = require('mongoose');
+
 ;
 
 conf = new Config();
@@ -21,11 +25,13 @@ var FACEBOOK_APP_SECRET = conf.facebook.FACEBOOK_APP_SECRET;
 //   have a database of user records, the complete Facebook profile is serialized
 //   and deserialized.
 passport.serializeUser(function(user, done) {
-  done(null, user);
+  done(null, user.id);
 });
 
-passport.deserializeUser(function(obj, done) {
-  done(null, obj);
+passport.deserializeUser(function(id, done) {
+  User.findById(id, function(err, user) {
+    done(err, user);
+  });
 });
 
 
@@ -39,12 +45,29 @@ passport.use(new FacebookStrategy({
     callbackURL: "http://localhost:3000/auth/facebook/callback"
   },
   function(req, accessToken, refreshToken, profile, done) {
-if (req.user) {
-  console.log('USUARIO RETORNADOOOOOOOOO'+req.user);
-}
-  else{
-    console.log(profile.id+' '+profile.displayName+' '+profile._json);
-  }
+
+    if (req.user) {     
+    }
+
+    else{
+      User.findOne({ facebook: profile.id }, function(err, existingUser) {
+
+      if (existingUser){
+       return done(null, existingUser);
+      }
+    
+       console.log(profile.id+' '+profile.displayName+' '+profile._json);
+       var user = new User();
+       user.facebook = profile.id;
+       user.profile.name = profile.displayName;
+       user.save(function(err) {
+            done(err, user);
+          });
+       User.find({facebook: profile.id}, function (err, user) {
+       });
+    });
+
+    
     process.nextTick(function () {
       
       // To keep the example simple, the user's Facebook profile is returned to
@@ -53,13 +76,74 @@ if (req.user) {
       // and return that user instead.
       return done(null, profile);
     });
-  }
+  }}
 ));
 
 
+/**
+ * Sign in with Facebook.
+ 
+passport.use(new FacebookStrategy(secrets.facebook, function(req, accessToken, refreshToken, profile, done) {
+  if (req.user) {
+    User.findOne({ facebook: profile.id }, function(err, existingUser) {
+      if (existingUser) {
+        req.flash('errors', { msg: 'There is already a Facebook account that belongs to you. Sign in with that account or delete it, then link it with your current account.' });
+        done(err);
+      } else {
+        User.findById(req.user.id, function(err, user) {
+          user.facebook = profile.id;
+          user.tokens.push({ kind: 'facebook', accessToken: accessToken });
+          user.profile.name = user.profile.name || profile.displayName;
+          user.profile.gender = user.profile.gender || profile._json.gender;
+          user.profile.picture = user.profile.picture || 'https://graph.facebook.com/' + profile.id + '/picture?type=large';
+          user.save(function(err) {
+            req.flash('info', { msg: 'Facebook account has been linked.' });
+            done(err, user);
+          });
+        });
+      }
+    });
+  } else {
+    console.log(3);
+    User.findOne({ facebook: profile.id }, function(err, existingUser) {
+
+      if (existingUser){
+        console.log(33);
+       return done(null, existingUser);
+      }
+      User.findOne({ email: profile._json.email }, function(err, existingEmailUser) {
+        if (existingEmailUser) {
+          console.log(4);
+          req.flash('errors', { msg: 'There is already an account using this email address. Sign in to that account and link it with Facebook manually from Account Settings.' });
+          done(err);
+        } else {
+          console.log(5);
+          var user = new User();
+          user.email = profile._json.email;
+          user.facebook = profile.id;
+          user.tokens.push({ kind: 'facebook', accessToken: accessToken });
+          user.profile.name = profile.displayName;
+          user.profile.gender = profile._json.gender;
+          user.profile.picture = 'https://graph.facebook.com/' + profile.id + '/picture?type=large';
+          user.profile.location = (profile._json.location) ? profile._json.location.name : '';
+          user.save(function(err) {
+            done(err, user);
+          });
+        }
+      });
+    });
+  }
+}));
+*/
+//res.status(200).send(response);
 
 
 var app = express();
+
+mongoose.connect(secrets.db);
+mongoose.connection.on('error', function() {
+  console.error('MongoDB Connection Error. Please make sure that MongoDB is running.');
+});
 
 // configure Express
   app.set('views', __dirname + '/views');
@@ -74,7 +158,7 @@ var app = express();
 
 
 app.get('/', function(req, res){
-    //console.log(req);
+    console.log(req.user);
   res.render('index', { user: req.user });
 });
 
